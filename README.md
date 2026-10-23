@@ -32,7 +32,7 @@ Every time code is pushed to GitHub, the pipeline **automatically orchestrates**
 │              Quality Gate ← Enforce ← Analysis Complete                 │
 │                              ↓                                          │
 │        Docker Image Build → Push to Registry → Deploy to K8s          │
-│                 (Docker)      (DockerHub)      (Minikube)             │
+│                 (Docker)      (DockerHub)      (Amazon EKS / Minikube) │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -48,7 +48,7 @@ Every time code is pushed to GitHub, the pipeline **automatically orchestrates**
 | 5 | **Quality Gate** | Enforce code standards (⚠️ FAILS if quality is poor) | SonarQube |
 | 6 | **Docker Build** | Create container image | Docker |
 | 7 | **Docker Push** | Upload to registry | DockerHub |
-| 8 | **Deploy to K8s** | Live deployment on cluster | Kubectl + Minikube |
+| 8 | **Deploy to K8s** | Live deployment on Amazon EKS cluster | Kubectl + EKS / Minikube |
 
 ---
 
@@ -63,7 +63,7 @@ Every time code is pushed to GitHub, the pipeline **automatically orchestrates**
 | **Code Quality** | SonarQube | Latest | Static analysis & quality gates |
 | **Containerization** | Docker | Latest | Image creation & management |
 | **Container Registry** | DockerHub | — | Image storage & versioning |
-| **Orchestration** | Kubernetes | Minikube | Container deployment & scaling |
+| **Orchestration** | Kubernetes | Amazon EKS / Minikube | Container deployment & scaling |
 | **OS** | Ubuntu Linux | 22.04 LTS | Host operating system |
 
 ---
@@ -74,7 +74,7 @@ Every time code is pushed to GitHub, the pipeline **automatically orchestrates**
 ✅ **Quality Gates** — Prevents low-quality code from deployment  
 ✅ **Container Native** — Docker + Kubernetes ready  
 ✅ **Production Ready** — Enterprise-grade configurations  
-✅ **Local Infrastructure** — No cloud dependencies (fully portable)  
+✅ **Cloud Native** — Amazon EKS cluster with Terraform automation (local Minikube supported for dev)  
 ✅ **Comprehensive Logging** — Track every stage of the pipeline  
 ✅ **Fast Feedback** — Full pipeline execution in ~5-10 minutes  
 
@@ -126,21 +126,36 @@ java -version              # Java 17+
 mvn -version               # Maven 3.9+
 docker --version           # Docker
 kubectl version --client   # Kubectl
-minikube version           # Minikube
+minikube version           # Minikube (optional for local testing)
+aws --version              # AWS CLI (required for EKS deployment)
 ```
 
-### Local Setup
-
-#### 1. Start Minikube
+### Local / Development Setup (Optional Minikube)
 
 ```bash
 minikube start --driver=docker
 ```
 
-#### 2. Connect Jenkins to Minikube Network
+### AWS EKS Setup (Production Path)
+
+Configure AWS CLI and create/update the EKS cluster via Terraform:
 
 ```bash
-docker network connect minikube jenkins
+cd terraform
+terraform init
+terraform apply -var="key_name=advanced-cicd"
+aws eks update-kubeconfig --region us-east-1 --name advanced-cicd-dev-eks
+```
+
+Then apply the Kubernetes manifests:
+
+```bash
+./deploy.sh
+```
+
+```bash
+# Only for local Minikube setups
+# docker network connect minikube jenkins
 ```
 
 #### 3. Create Jenkins Credentials
@@ -195,7 +210,7 @@ kubectl get svc
 3. **Pipeline Execution** → Jenkins runs the Jenkinsfile
 4. **Quality Check** → SonarQube validates code standards
 5. **Build & Package** → Docker image created and pushed
-6. **Deployment** → Kubectl deploys to Minikube cluster
+6. **Deployment** → Kubectl deploys to Amazon EKS (or local Minikube for development)
 7. **Feedback** → Results posted back to GitHub PR (if applicable)
 
 ### Environment Variables & Secrets
@@ -228,7 +243,7 @@ kubectl get svc
 ```bash
 # Ensure Docker socket is accessible
 sudo usermod -aG docker jenkins
-docker network connect minikube jenkins
+# For local Minikube only: docker network connect minikube jenkins
 ```
 
 ### Issue: SonarQube Quality Gate Fails
@@ -338,7 +353,8 @@ This project is open source and available under the MIT License.
 
 Access app after pipeline runs:
 kubectl get pods -n advanced-cicd
-minikube service advanced-cicd-app -n advanced-cicd --url
+# For Amazon EKS: kubectl get svc -n advanced-cicd -o wide
+# For local Minikube: minikube service advanced-cicd-app -n advanced-cicd --url
 
 ## Author
 

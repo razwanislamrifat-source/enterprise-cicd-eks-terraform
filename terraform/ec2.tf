@@ -1,11 +1,31 @@
-# Centralized AMI selection for the EC2 fleet in this stack.
+# Dynamic AMI selection using Amazon Linux 2 or Amazon Linux 2023.
+data "aws_ami" "amazon_linux_2" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-2.0.*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+}
+
 locals {
-  amazon_linux_2_ami = "ami-0c02fb55956c7d316"
+  selected_ami = data.aws_ami.amazon_linux_2.id
 }
 
 # Jenkins master instance that hosts the CI/CD controller.
 resource "aws_instance" "jenkins_master" {
-  ami                         = local.amazon_linux_2_ami
+  ami                         = local.selected_ami
   instance_type               = var.instance_type
   subnet_id                   = aws_subnet.public[0].id
   key_name                    = var.key_name
@@ -36,7 +56,7 @@ resource "aws_instance" "jenkins_master" {
 
 # Jenkins agent instance used for distributed build and deployment workloads.
 resource "aws_instance" "jenkins_agent" {
-  ami                         = local.amazon_linux_2_ami
+  ami                         = local.selected_ami
   instance_type               = var.instance_type
   subnet_id                   = aws_subnet.public[0].id
   key_name                    = var.key_name
@@ -67,7 +87,7 @@ resource "aws_instance" "jenkins_agent" {
 
 # Ansible controller instance used to manage remote configuration tasks.
 resource "aws_instance" "ansible_controller" {
-  ami                         = local.amazon_linux_2_ami
+  ami                         = local.selected_ami
   instance_type               = "t3.small"
   subnet_id                   = aws_subnet.public[0].id
   key_name                    = var.key_name

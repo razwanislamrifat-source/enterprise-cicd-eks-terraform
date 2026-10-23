@@ -1,21 +1,25 @@
 def dockerImage
 pipeline {
     agent any
+    parameters {
+        string(name: 'APP_VERSION', defaultValue: '2.0.0', description: 'Application version to build and tag')
+        string(name: 'APP_NAME', defaultValue: 'advanced-cicd-app', description: 'Application image name')
+    }
     environment {
-        APP_NAME = 'advanced-cicd-app'
-        APP_VERSION = '2.0.0'
+        APP_NAME = "${params.APP_NAME}"
+        APP_VERSION = "${params.APP_VERSION}"
         SONARQUBE_URL = 'http://sonarqube:9000'
         DOCKER_IMAGE = "razwanff/${APP_NAME}:${APP_VERSION}"
     }
     stages {
         stage('Build') {
             steps {
-                sh 'cd app && mvn clean package -Dmaven.test.skip=true'
+                sh 'cd app && mvn clean package'
             }
         }
         stage('Unit Test') {
             steps {
-                sh 'cd app && mvn surefire-report:report'
+                sh 'cd app && mvn test'
             }
         }
         stage('SonarQube Analysis') {
@@ -62,6 +66,7 @@ pipeline {
     post {
         always {
             echo "Pipeline completed with status: ${currentBuild.currentResult}"
+            echo "Built image: ${env.DOCKER_IMAGE} (version: ${params.APP_VERSION})"
         }
     }
 }

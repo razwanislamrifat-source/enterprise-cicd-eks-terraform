@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: advanced-cicd-app
-          image: advanced-cicd-app:2.0.0
-          imagePullPolicy: Never
+          image: advanced-cicd-app:${IMAGE_TAG}
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           resources:

@@ -1,24 +1,34 @@
-# Security group for the Jenkins master, allowing web access on port 8080
-# and administrative SSH access on port 22.
+# Security group for the Jenkins master.
 resource "aws_security_group" "jenkins_master" {
   name        = "${var.project_name}-${var.environment}-jenkins-master-sg"
   description = "Security group for the Jenkins master instance."
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "Allow Jenkins web UI access"
+    description = "Allow Jenkins web UI access from approved CIDRs"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.allowed_cidr_blocks
   }
 
   ingress {
-    description = "Allow SSH access"
+    description = "Allow SSH access from approved CIDRs"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.allowed_cidr_blocks
+  }
+
+  dynamic "ingress" {
+    for_each = var.bastion_security_group_id != null ? [1] : []
+    content {
+      description     = "Allow SSH access from bastion SG"
+      from_port       = 22
+      to_port         = 22
+      protocol        = "tcp"
+      security_groups = [var.bastion_security_group_id]
+    }
   }
 
   egress {
@@ -34,19 +44,29 @@ resource "aws_security_group" "jenkins_master" {
   }
 }
 
-# Security group for the Jenkins build agent. SSH is exposed so the
-# controller or operators can reach the instance when required.
+# Security group for the Jenkins build agent.
 resource "aws_security_group" "jenkins_agent" {
   name        = "${var.project_name}-${var.environment}-jenkins-agent-sg"
   description = "Security group for the Jenkins agent instance."
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "Allow SSH access"
+    description = "Allow SSH access from approved CIDRs"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.allowed_cidr_blocks
+  }
+
+  dynamic "ingress" {
+    for_each = var.bastion_security_group_id != null ? [1] : []
+    content {
+      description     = "Allow SSH access from bastion SG"
+      from_port       = 22
+      to_port         = 22
+      protocol        = "tcp"
+      security_groups = [var.bastion_security_group_id]
+    }
   }
 
   egress {
@@ -69,11 +89,22 @@ resource "aws_security_group" "ansible_controller" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "Allow SSH access"
+    description = "Allow SSH access from approved CIDRs"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.allowed_cidr_blocks
+  }
+
+  dynamic "ingress" {
+    for_each = var.bastion_security_group_id != null ? [1] : []
+    content {
+      description     = "Allow SSH access from bastion SG"
+      from_port       = 22
+      to_port         = 22
+      protocol        = "tcp"
+      security_groups = [var.bastion_security_group_id]
+    }
   }
 
   egress {

@@ -8,14 +8,13 @@ terraform {
     }
   }
 
-  # Uncomment and configure for production.
-  # backend "s3" {
-  #   bucket         = "your-terraform-state-bucket"
-  #   key            = "advanced-cicd/dev/terraform.tfstate"
-  #   region         = "us-east-1"
-  #   dynamodb_table = "your-terraform-lock-table"
-  #   encrypt        = true
-  # }
+  backend "s3" {
+    bucket         = var.terraform_state_bucket
+    key            = "${var.project_name}/${var.environment}/terraform.tfstate"
+    region         = var.aws_region
+    dynamodb_table = var.terraform_lock_table
+    encrypt        = true
+  }
 }
 
 # Configure the AWS provider and apply a consistent baseline tag set to
