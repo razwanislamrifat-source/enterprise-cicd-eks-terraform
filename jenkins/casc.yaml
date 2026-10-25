@@ -1,0 +1,141 @@
+# Jenkins Configuration as Code (JCasC)
+# This file configures Jenkins automatically on startup
+# Mount this file at /var/jenkins_home/casc.yaml or set CASC_JENKINS_CONFIG environment variable
+
+jenkins:
+  systemMessage: "Advanced CI/CD Pipeline - Jenkins configured via JCasC"
+  numExecutors: 0
+  mode: NORMAL
+  labelString: "controller"
+  markupFormatter: "plainText"
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: false
+  disableRememberMe: false
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      enableCaptcha: false
+      users:
+        - id: "admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+          name: "Administrator"
+          email: "admin@example.com"
+
+  authorizationStrategy:
+    loggedInUsersCanDoEverything:
+      allowAnonymousRead: false
+
+  clouds:
+    - kubernetes:
+        name: "kubernetes"
+        serverUrl: "https://kubernetes.default.svc"
+        skipTlsVerify: true
+        namespace: "jenkins"
+        jenkinsUrl: "http://jenkins:8080"
+        jenkinsTunnel: "jenkins-agent:50000"
+        templates:
+          - name: "maven-agent"
+            label: "maven"
+            namespace: "jenkins"
+            serviceAccount: "jenkins"
+            nodeUsageMode: "NORMAL"
+            containers:
+              - name: "maven"
+                image: "maven:3.9.4-amazoncorretto-17"
+                command: "cat"
+                ttyEnabled: true
+                resourceRequestCpu: "500m"
+                resourceRequestMemory: "1Gi"
+                resourceLimitCpu: "1000m"
+                resourceLimitMemory: "2Gi"
+                envVars:
+                  - key: "MAVEN_OPTS"
+                    value: "-Xmx1024m"
+                  - key: "JAVA_OPTS"
+                    value: "-Xmx1024m"
+            volumes:
+              - type: "emptyDir"
+                mountPath: "/home/jenkins/.m2"
+              - type: "emptyDir"
+                mountPath: "/workspace"
+
+  tool:
+    git:
+      installations:
+        - name: "Default"
+          home: "/usr/bin/git"
+    maven:
+      installations:
+        - name: "Maven 3.9.4"
+          home: "/opt/maven"
+          properties:
+            - name: "MAVEN_OPTS"
+              value: "-Xmx1024m"
+    jdk:
+      installations:
+        - name: "JDK 17"
+          home: "/usr/lib/jvm/java-17-amazon-corretto"
+          properties:
+            - name: "JAVA_HOME"
+              value: "/usr/lib/jvm/java-17-amazon-corretto"
+
+  credentials:
+    system:
+      domainCredentials:
+        - credentials:
+            - usernamePassword:
+                scope: GLOBAL
+                id: "dockerhub-credentials"
+                username: "${DOCKERHUB_USERNAME}"
+                password: "${DOCKERHUB_PASSWORD}"
+                description: "DockerHub credentials for pushing images"
+            - string:
+                scope: GLOBAL
+                id: "sonarqube-token"
+                secret: "${SONARQUBE_TOKEN}"
+                description: "SonarQube authentication token"
+            - usernamePassword:
+                scope: GLOBAL
+                id: "jfrog-artifactory-credentials"
+                username: "${JFROG_USERNAME}"
+                password: "${JFROG_PASSWORD}"
+                description: "JFrog Artifactory credentials"
+
+  jobs:
+    - script: >
+        multibranchPipelineJob('advanced-cicd-pipeline') {
+          branchSources {
+            github {
+              repoOwner('razwanislamrifat-source')
+              repository('enterprise-cicd-pipeline')
+              credentialsId('github-credentials')
+              traits {
+                headWildcardFilter {
+                  includes('main')
+                  excludes('')
+                }
+              }
+            }
+          }
+          scriptPath('Jenkinsfile')
+          orphanedItemStrategy {
+            discardOldItems {
+              numToKeep(10)
+              daysToKeep(30)
+            }
+          }
+        }
+
+unclassified:
+  location:
+    url: "http://jenkins.example.com"
+  mailer:
+    useSsl: true
+    smtpHost: "smtp.example.com"
+    smtpPort: 587
+    defaultSuffix: "@example.com"
+    replyToAddress: "noreply@example.com"
+    userName: "${SMTP_USERNAME}"
+    password: "${SMTP_PASSWORD}"

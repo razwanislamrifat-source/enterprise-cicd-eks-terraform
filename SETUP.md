@@ -80,14 +80,18 @@ Terraform will output instance IPs and DNS names. Save these for next steps.
 
 ### 3. Ansible Configuration
 
-Update inventory with Terraform outputs:
+Generate inventory automatically from Terraform outputs:
 
 ```bash
 cd ../ansible
-nano inventory.ini
-```
+# Linux/macOS:
+../scripts/generate_inventory.sh < ../terraform/terraform_output.json > inventory.ini
+# Or from terraform directory:
+cd ../terraform && terraform output -json | ../scripts/generate_inventory.sh > ../ansible/inventory.ini
 
-Replace `<jenkins-master-ip>`, `<jenkins-agent-ip>`, `<sonarqube-ip>` with actual IPs.
+# Windows PowerShell:
+cd ..\terraform; terraform output -json | ..\scripts\Generate-Inventory.ps1 > ..\ansible\inventory.ini
+```
 
 Test connectivity:
 
@@ -135,14 +139,11 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 1. Jenkins Dashboard → Manage Jenkins → Manage Credentials
 2. Add credentials:
 
-   **JFrog Artifactory** (Kind: Username with password)
-   - ID: `jfrog-artifactory-credentials`
-
    **SonarQube Token** (Kind: Secret text)
    - ID: `sonarqube-token`
 
    **Docker Registry** (Kind: Username with password)
-   - ID: `docker-registry-credentials`
+   - ID: `dockerhub-credentials`
 
 #### Add Pipeline Job
 

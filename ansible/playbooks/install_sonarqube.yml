@@ -1,6 +1,6 @@
 ---
 - name: Deploy SonarQube container
-  hosts: ansible_controller
+  hosts: sonarqube
   become: true
   gather_facts: true
 

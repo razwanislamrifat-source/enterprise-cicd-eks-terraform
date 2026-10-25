@@ -168,7 +168,7 @@ Log in to Jenkins UI (`http://localhost:8080`) and add:
   - Password/Token: Your DockerHub access token
 
 - **SonarQube Token**
-  - Credential ID: `jinkies`
+  - Credential ID: `sonarqube-token`
   - Token: Your SonarQube authentication token
 
 #### 4. Configure the Jenkins Pipeline

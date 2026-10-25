@@ -1,0 +1,41 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: advanced-cicd
+
+bases:
+  - ../../base
+
+commonLabels:
+  environment: dev
+
+images:
+  - name: advanced-cicd-app
+    newTag: "2.0.0-dev"
+
+replicas:
+  - name: advanced-cicd-app
+    count: 1
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: advanced-cicd-app
+        namespace: advanced-cicd
+      spec:
+        template:
+          spec:
+            containers:
+              - name: advanced-cicd-app
+                resources:
+                  limits:
+                    cpu: "250m"
+                    memory: "256Mi"
+                  requests:
+                    cpu: "100m"
+                    memory: "128Mi"
+    target:
+      kind: Deployment
+      name: advanced-cicd-app
