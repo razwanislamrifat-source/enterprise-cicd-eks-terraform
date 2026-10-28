@@ -3,8 +3,11 @@ kind: Service
 metadata:
   name: advanced-cicd-app
   namespace: advanced-cicd
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "false"
+    # Internal access only; use ingress or port-forward for external access
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: advanced-cicd-app
   ports:
