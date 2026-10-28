@@ -1,8 +1,11 @@
 ---
-- name: Install Jenkins on Jenkins Master
+- name: Install Jenkins on Jenkins Master with JCasC
   hosts: jenkins_master
   become: true
   gather_facts: true
+  vars:
+    jenkins_casc_url: "https://raw.githubusercontent.com/razwanislamrifat-source/enterprise-cicd-pipeline/main/jenkins/casc.yaml"
+    jenkins_home: "/var/lib/jenkins"
 
   tasks:
     - name: Install Java and Jenkins
@@ -10,6 +13,8 @@
         name:
           - java-17-amazon-corretto
           - firewalld
+          - git
+          - curl
         state: present
 
     - name: Configure Jenkins repository
@@ -29,6 +34,39 @@
       ansible.builtin.yum:
         name: jenkins
         state: present
+
+    - name: Create JCasC configuration directory
+      ansible.builtin.file:
+        path: "{{ jenkins_home }}/casc_configs"
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: '0755'
+
+    - name: Download JCasC configuration
+      ansible.builtin.get_url:
+        url: "{{ jenkins_casc_url }}"
+        dest: "{{ jenkins_home }}/casc_configs/casc.yaml"
+        mode: '0644'
+        owner: jenkins
+        group: jenkins
+      register: casc_download
+
+    - name: Configure Jenkins for JCasC
+      ansible.builtin.lineinfile:
+        path: /etc/sysconfig/jenkins
+        regexp: '^CASC_JENKINS_CONFIG='
+        line: 'CASC_JENKINS_CONFIG={{ jenkins_home }}/casc_configs/casc.yaml'
+        state: present
+      notify: restart jenkins
+
+    - name: Ensure Jenkins Java options include JCasC plugin
+      ansible.builtin.lineinfile:
+        path: /etc/sysconfig/jenkins
+        regexp: '^JENKINS_JAVA_OPTIONS='
+        line: 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false -Dcasc.jenkins.config={{ jenkins_home }}/casc_configs/casc.yaml"'
+        state: present
+      notify: restart jenkins
 
     - name: Manage firewalld service
       ansible.builtin.service:
@@ -51,18 +89,20 @@
 
     - name: Wait for Jenkins startup
       ansible.builtin.wait_for:
-        path: /var/lib/jenkins/secrets/initialAdminPassword
+        port: 8080
         timeout: 300
 
-    - name: Retrieve initial admin password
-      ansible.builtin.slurp:
-        src: /var/lib/jenkins/secrets/initialAdminPassword
-      register: jenkins_password
+    - name: Verify JCasC configuration loaded
+      ansible.builtin.uri:
+        url: http://localhost:8080/configuration-as-code
+        status_code: 200
+      register: casc_check
+      retries: 10
+      delay: 30
+      until: casc_check.status == 200
 
-    - name: Save credentials to file
-      ansible.builtin.copy:
-        content: "{{ jenkins_password['content'] | b64decode }}"
-        dest: /tmp/jenkins_initial_password.txt
-        mode: '0600'
-      delegate_to: localhost
-      become: false
+  handlers:
+    - name: restart jenkins
+      ansible.builtin.service:
+        name: jenkins
+        state: restarted
