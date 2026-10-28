@@ -73,6 +73,84 @@ variable "vpc_cidr" {
   }
 }
 
+variable "kubernetes_version" {
+  description = "Kubernetes version for the EKS cluster."
+  type        = string
+  default     = "1.29"
+
+  validation {
+    condition     = contains(["1.27", "1.28", "1.29", "1.30"], var.kubernetes_version)
+    error_message = "kubernetes_version must be a supported EKS version (1.27, 1.28, 1.29, 1.30)."
+  }
+}
+
+variable "node_group_desired_size" {
+  description = "Desired number of worker nodes in the EKS node group."
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.node_group_desired_size >= var.node_group_min_size && var.node_group_desired_size <= var.node_group_max_size
+    error_message = "node_group_desired_size must be between min_size and max_size."
+  }
+}
+
+variable "node_group_max_size" {
+  description = "Maximum number of worker nodes in the EKS node group."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.node_group_max_size >= var.node_group_min_size
+    error_message = "node_group_max_size must be >= node_group_min_size."
+  }
+}
+
+variable "node_group_min_size" {
+  description = "Minimum number of worker nodes in the EKS node group."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.node_group_min_size >= 1
+    error_message = "node_group_min_size must be >= 1."
+  }
+}
+
+variable "node_group_instance_types" {
+  description = "EC2 instance types for EKS worker nodes."
+  type        = list(string)
+  default     = ["t3.medium"]
+
+  validation {
+    condition     = alltrue([for t in var.node_group_instance_types : contains(["t3.medium", "t3.large", "t3.xlarge", "m5.large", "m5.xlarge", "c5.large", "c5.xlarge"], t)])
+    error_message = "node_group_instance_types must be approved EC2 instance types."
+  }
+}
+
+variable "enable_nat_gateway" {
+  description = "Whether to create NAT Gateways for private subnet internet access."
+  type        = bool
+  default     = true
+}
+
+variable "single_nat_gateway" {
+  description = "Create only one NAT Gateway (cost optimization for dev). If false, creates one per AZ."
+  type        = bool
+  default     = true
+}
+
+variable "private_subnet_cidr_offset" {
+  description = "CIDR offset for private subnets (e.g., 4 for 10.0.4.0/24, 10.0.5.0/24)."
+  type        = number
+  default     = 4
+
+  validation {
+    condition     = var.private_subnet_cidr_offset > 0 && var.private_subnet_cidr_offset < 256
+    error_message = "private_subnet_cidr_offset must be between 1 and 255."
+  }
+}
+
 # Shared tags applied to all supported resources to improve traceability,
 # inventory visibility, and cost allocation.
 locals {
@@ -81,4 +159,10 @@ locals {
     environment  = var.environment
     managed_by   = "terraform"
   }
+
+  # Calculate number of AZs to use (max 2 for cost)
+  az_count = min(2, length(data.aws_availability_zones.available.names))
+
+  # NAT Gateway count: 1 if single_nat_gateway, else az_count
+  nat_gateway_count = var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : local.az_count) : 0
 }
